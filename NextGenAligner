@@ -6,7 +6,7 @@ use Parallel::ForkManager;
 
 my $progName = $0;
 $progName    =~ s/^.*\///;
-my $version  = '1.2.1';
+my $version  = '1.2.2';
 my $created  = '011017';
 my $modified = '011019';
 
@@ -1077,6 +1077,10 @@ sub _configure
 		}
 		_load_configuration_file( $options );
 
+		# Include and require VALIDATE to check downloaded SRA file
+		$include{'VALIDATE'}   = 1;
+		_require_program( $options, 'VALIDATE' );
+
 		# QC on raw reads
 		# Linked to -f option
 		_require_q_group_options( $options, \%include )
@@ -1245,12 +1249,10 @@ sub _require_q_group_options
 	my $options = shift;
 	my $include = shift;
 
-	_require_program( $options, 'VALIDATE' );
 	_require_program( $options, 'FASTQC' );
 	_require_program( $options, 'TRIMGALORE' );
 	_require_program( $options, 'CUTADAPT' );
 
-	$include->{'VALIDATE'}   = 1;
 	$include->{'FASTQC'}     = 1;
 	$include->{'TRIMGALORE'} = 1;
 	$include->{'CUTADAPT'}   = 1;
@@ -1648,12 +1650,12 @@ sub generate
 		print STDOUT "    Downloading SRA file (trial $trial)\n";
 		my( $sra6 ) = $sra =~ /(SRR\d{3})/;
 		my $ftpSite = "ftp://ftp-trace.ncbi.nih.gov/sra/sra-instant/reads/ByRun/sra/SRR/$sra6/$sra";
-		print $PLOG "    COMMAND: wget -cq -O $outDir/$sra.sra $ftpSite/$sra.sra\n";
+		print $PLOG "    COMMAND: wget -cq -O $outDir/$sra.sra $ftpSite/$sra.sra 2> $logsDir/sra_wget.stderr\n";
 		`wget -cq -O $outDir/$sra.sra $ftpSite/$sra.sra 2> $logsDir/sra_wget.stderr`;
 
 		# Check if SRA file was successfully downloaded
-		print $PLOG "    COMMAND: $validate $sraFile\n";
-		`$validate $sraFile 2> $logsDir/sra_chksum.stderr"`;
+		print $PLOG "    COMMAND: $validate $sraFile 2> $logsDir/sra_chksum.stderr\n";
+		`$validate $sraFile 2> $logsDir/sra_chksum.stderr`;
 		my $checksum = `grep -o \"is consistent\" $logsDir/sra_chksum.stderr`;
 		chomp $checksum;
 
