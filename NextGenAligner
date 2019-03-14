@@ -6,9 +6,9 @@ use Parallel::ForkManager;
 
 my $progName = $0;
 $progName    =~ s/^.*\///;
-my $version  = '1.2.2';
+my $version  = '1.3.0';
 my $created  = '011017';
-my $modified = '011019';
+my $modified = '031419';
 
 my %options;
 # EHKLNPQRSTUVWYZ
@@ -320,8 +320,8 @@ sub process_fastq_file
 		$Fastq->trim_adapters( $qcLogs );
 
 		# Remove unused fastqc directory
-		my $qcDir  = $Fastq->get_qc_dir;
-		`rm -rf $qcDir 2> /dev/null`;
+#		my $qcDir  = $Fastq->get_qc_dir;
+#		`rm -rf $qcDir 2> /dev/null`;
 	}
 
 	# Exit if alignment was not requested
@@ -1498,8 +1498,12 @@ sub quality_control
 		`echo $fastq > $qcLog && cut -f1,2 $qcDir/$base*_fastqc/summary.txt >> $qcLog`;
 		push( @qcLogs, $qcLog );
 	}
-	# Move zipped fastqc directory
-	`mv -f $qcDir/*.zip $outDir`;
+	# Remove zipped fastqc file
+	`rm -f $qcDir/*.zip`;
+	# Move fastqc directory to logsDir
+	`mv -f $qcDir/* $logsDir`;
+	# Remove fastqc directory
+	`rm -rf $qcDir`;
 
 	my $time1   = time;
 	my $elapsed = sprintf( "%.2f", ( $time1 - $time0 ) / 60 );
@@ -1976,9 +1980,9 @@ sub align_to_genome
 	# Use STAR with RNA-seq alignment (memory intensive! >32GB)
 	if( $Config->get_value('s') ){
 		my $star      = $Config->get_value('STAR');
-		my $modifiers = "--outSAMtype BAM Unsorted --outSAMmultNmax 1 --outMultimapperOrder Random";
-		$modifiers   .= " --outSAMunmapped Within KeepPairs"; # Save unmmaped reads within the BAM file
-#		$modifiers   .= " --outReadsUnmapped Fastx";
+		my $modifiers = "--outSAMtype BAM SortedByCoordinate --outSAMmultNmax 1 --outMultimapperOrder Random";
+#		$modifiers   .= " --outSAMunmapped Within KeepPairs"; # Save unmmaped reads within the BAM file
+		$modifiers   .= " --outReadsUnmapped Fastx";
 		$modifiers   .= " --readFilesCommand zcat" if $gz_flag;
 	 	$modifiers   .= " --outFileNamePrefix $outDir/";
 		my $fastqs    = $fastq1;
@@ -1993,20 +1997,20 @@ sub align_to_genome
 		$numAligned  = `grep "Uniquely mapped reads number" $outDir/Log.final.out | cut -f2`; chomp $numAligned;
 
 		# Rename BAM file
-		`mv -f $outDir/Aligned.out.bam $bamFile 2> /dev/null`;
+		`mv -f $outDir/Aligned.sortedByCoord.out.bam $bamFile 2> /dev/null`;
 
 		# Rename unmapped FASTQ files
-#		my $unmapped1 = "$outDir/Unmapped.out.mate1";
-#		my $unmapped2 = "$outDir/Unmapped.out.mate2";
+		my $unmapped1 = "$outDir/Unmapped.out.mate1";
+		my $unmapped2 = "$outDir/Unmapped.out.mate2";
 
-#		if( $unmapped1 ){
-#			`mv -f $unmapped1 $outDir/$base\_unmapped_R1.fastq`;
-#			`gzip             $outDir/$base\_unmapped_R1.fastq`;
-#		}
-#		if( $unmapped2 ){
-#			`mv -f $unmapped2 $outDir/$base\_unmapped_R2.fastq`;
-#			`gzip             $outDir/$base\_unmapped_R2.fastq`;
-#		}
+		if( -s $unmapped1 ){
+			`mv -f $unmapped1 $outDir/$base\_unmapped_R1.fastq`;
+			`gzip             $outDir/$base\_unmapped_R1.fastq`;
+		}
+		if( -s $unmapped2 ){
+			`mv -f $unmapped2 $outDir/$base\_unmapped_R2.fastq`;
+			`gzip             $outDir/$base\_unmapped_R2.fastq`;
+		}
 
 		# Save relevant STAR output files
 		`mv -f $outDir/Log.final.out $logsDir/$base\_star.log 2> /dev/null`;
