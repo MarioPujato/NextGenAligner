@@ -6,9 +6,9 @@ use Parallel::ForkManager;
 
 my $progName = $0;
 $progName    =~ s/^.*\///;
-my $version  = '1.4.0';
+my $version  = '1.4.1';
 my $created  = '011017';
-my $modified = '041019';
+my $modified = '052819';
 
 my %options;
 # EHKLNPQRSTUVWYZ
@@ -74,10 +74,10 @@ my $iNum   = scalar @inputs;
 #===============================================================================
 # CONCATENATE FASTQ FILES
 #===============================================================================
-if( $options{'i'} ){
+if( $options{'i'} and $iNum > 1 ){
 	my $outDir  = $Config->get_value('O');
 	print $PLOG  "Concatenation of input files requested\n";
-	print STDOUT "Concatenation of input files requested\n";
+	print STDERR "Concatenation of input files requested\n";
 
 	# Download multiple SRA files and converte them to FASTQ
 	if( $Config->get_value('I') ){
@@ -86,7 +86,7 @@ if( $options{'i'} ){
 		for( my $i = 0; $i < $iNum; $i++ ){
 			my $input = $inputs[$i];
 			print $PLOG  "  > Downloading $input\n";
-			print STDOUT "  > Downloading $input\n";
+			print STDERR "  > Downloading $input\n";
 
 			$input = process_sra( $input, $Config );
 			push( @fastqFiles, $input );
@@ -96,35 +96,33 @@ if( $options{'i'} ){
 		$Config->set_value( 'F', \@inputs );
 
 		print $PLOG  "\e[0;32m[ DONE ]\e[0m\n";
-		print STDOUT "\e[0;32m[ DONE ]\e[0m\n";
+		print STDERR "\e[0;32m[ DONE ]\e[0m\n";
 	}
 
 	# Merged/Concatenate multiple FASTQ files into one
 	if( $Config->get_value('F') ){
 		print $PLOG  "  > Concatenating FASTQ files\n";
-		print STDOUT "  > Concatenating FASTQ files\n";
+		print STDERR "  > Concatenating FASTQ files\n";
 
-		# Default base name for concatenated file if no -O option was given
+		# Extract basename
 		my $baseName = $inputs[0];
 		$baseName    =~ s/^.*\///;
 		$baseName    =~ s/\..*$//;
 
-		my $outBase  = $outDir;
-		$outBase     =~ s/^.*\///;
-		$outBase     =~ s/\/+$//;
-		$outBase     = $baseName if $outBase eq '.';
+		# Default names for the merged FASTQ files
+		my $mergedFastq1 = "$outDir/$baseName\_1.fastq.gz";
+		my $mergedFastq2 = "$outDir/$baseName\_2.fastq.gz";
 
-		my $mergedFastq1 = "$outDir/$outBase\_1.fastq.gz";
-		my $mergedFastq2 = "$outDir/$outBase\_2.fastq.gz";
-		# Make sure the merged files do not exist
+		# Make sure the merged files do not exist by removing any existing ones
 		`rm -f $mergedFastq1 $mergedFastq2 2> /dev/null`;
 
-		for( my $i = 0; $i < $iNum; $i++ ){
+		# Go through the FASTQ files and concatenate
+		for( my $i = 1; $i < $iNum; $i++ ){
 			print $PLOG  "  > $inputs[$i]\n";
-			print STDOUT "  > $inputs[$i]\n";
+			print STDERR "  > $inputs[$i]\n";
 			my( $input1, $input2 ) = split( ':', $inputs[$i] );
 
-			if( ! $input1 ){
+			if( !-s $input1 ){
 				print $PLOG "ERROR: File $input1 does not exist or it's empty\n";
 				die "ERROR: File $input1 does not exist or it's empty\n";
 			}
@@ -134,10 +132,13 @@ if( $options{'i'} ){
 			`$cat $input1 | gzip >> $mergedFastq1`;
 
 			if( $input2 ){
-				if( ! $input2 ){
+				if( !-s $input2 ){
 					print $PLOG "ERROR: File $input2 does not exist or it's empty\n";
 					die "ERROR: File $input2 does not exist or it's empty\n";
 				}
+				if( $iNum > 1 ){
+				print $PLOG  "    No need for concatenation. Only one file was provided.";
+				print STDERR "    No need for concatenation. Only one file was provided.";
 				$cat = 'cat';
 				$cat = 'zcat' if $input2 =~ /gz$/;
 				print $PLOG "    COMMAND: $cat $input2 | gzip >> $mergedFastq2\n";
@@ -154,7 +155,7 @@ if( $options{'i'} ){
 				`rm -f $input1 $input2 2> /dev/null`;
 			}
 		}
-		print STDOUT "\e[0;32m[ DONE ]\e[0m\n";
+		print STDERR "\e[0;32m[ DONE ]\e[0m\n";
 	}
 	$Config->set_value( 'I', 0 );
 	$iType  = 'F';
@@ -179,7 +180,7 @@ if( $options{'i'} ){
 for( my $i = 1; $i <= $iNum; $i++ ){
 	my $input  = $inputs[$i-1];
 	print $PLOG  "\n>> Processing input \'$iType\' ($i/$iNum)\n";
-	print STDOUT "\n>> Processing input \'$iType\' ($i/$iNum)\n";
+	print STDERR "\n>> Processing input \'$iType\' ($i/$iNum)\n";
 
 	#-------------------------------------------------------------------------------
 	# Create FASTQ files from SRA files
@@ -188,12 +189,12 @@ for( my $i = 1; $i <= $iNum; $i++ ){
 
 	if( $Config->get_value('I') ){
 		print $PLOG  "Processing SRA\n  > $input\n";
-		print STDOUT "Processing SRA\n  > $input\n";
+		print STDERR "Processing SRA\n  > $input\n";
 
 		$input = process_sra( $input, $Config );
 
 		print $PLOG  "\e[0;32m[ DONE ]\e[0m\n";
-		print STDOUT "\e[0;32m[ DONE ]\e[0m\n";
+		print STDERR "\e[0;32m[ DONE ]\e[0m\n";
 	}
 
 	#-------------------------------------------------------------------------------
@@ -203,13 +204,13 @@ for( my $i = 1; $i <= $iNum; $i++ ){
 
 	if( $Config->get_value('F') ){
 		print $PLOG  "Processing FASTQ file\n";
-		print STDOUT "Processing FASTQ file\n";
+		print STDERR "Processing FASTQ file\n";
 
 		my $Fastq = load_fastq_file( $input, $Config );
 		$input    = process_fastq_file( $Fastq, $Config );
 
 		print $PLOG  "\e[0;32m[ DONE ]\e[0m\n";
-		print STDOUT "\e[0;32m[ DONE ]\e[0m\n";
+		print STDERR "\e[0;32m[ DONE ]\e[0m\n";
 	}
 	# Continue if BAM files were requested
 	next unless(
@@ -225,7 +226,7 @@ for( my $i = 1; $i <= $iNum; $i++ ){
 	if( $Config->get_value('B') ){
 		# Index and split BAM file by chromosomes
 		print $PLOG  "Processing BAM file\n  > $input\n";
-		print STDOUT "Processing BAM file\n  > $input\n";
+		print STDERR "Processing BAM file\n  > $input\n";
 
 		my $Alignment = process_bam_file( $input, $Config );
 
@@ -241,7 +242,7 @@ for( my $i = 1; $i <= $iNum; $i++ ){
 		`rm -f $outDir/chr*.bed 2> /dev/null`;
 
 		print $PLOG  "\e[0;32m[ DONE ]\e[0m\n";
-		print STDOUT "\e[0;32m[ DONE ]\e[0m\n";
+		print STDERR "\e[0;32m[ DONE ]\e[0m\n";
 	}
 }
 my $dateEnd = `date`; chomp $dateEnd;
@@ -296,8 +297,8 @@ sub load_fastq_file
 
 	print $PLOG  "  > $jFile1\n";
 	print $PLOG  "  > $jFile2\n" if $jFile2;
-	print STDOUT "  > $jFile1\n";
-	print STDOUT "  > $jFile2\n" if $jFile2;
+	print STDERR "  > $jFile1\n";
+	print STDERR "  > $jFile2\n" if $jFile2;
 
 	my $Fastq = new FASTQ(
 		config => $Config,
@@ -385,7 +386,7 @@ sub process_bam_file
 
 	# Call peaks with MACS2
 	print $PLOG  "Call peaks from BAM file\n  > $input\n";
-	print STDOUT "Call peaks from BAM file\n  > $input\n";
+	print STDERR "Call peaks from BAM file\n  > $input\n";
 
 	my $Peaks = new PEAKS(
 		bamFile => $Alignment->get_file,
@@ -1113,7 +1114,7 @@ sub _configure
 	$include{'O'}   = 1;
 
 	print $PLOG  "\n\e[1;31mConfiguration:\e[0m\n\n";
-	print STDOUT "\n\e[1;31mConfiguration:\e[0m\n\n";
+	print STDERR "\n\e[1;31mConfiguration:\e[0m\n\n";
 	my @sorted = sort{ $a cmp $b } keys %$options;
 
 	for my $conf ( @sorted ){
@@ -1124,7 +1125,7 @@ sub _configure
 			if( defined $value ){
 				unless( $conf =~ /MODES|[abcdfnqrst]|PLOG/ ){
 					printf $PLOG  ( "%14s: %s\n", $conf, $value );
-					printf STDOUT ( "%14s: %s\n", $conf, $value );
+					printf STDERR ( "%14s: %s\n", $conf, $value );
 				}
 
 				if( $conf =~ /MODES/ ){
@@ -1133,7 +1134,7 @@ sub _configure
 					for my $mode ( @sorted ){
 						my $subval = $value->{$mode};
 						printf $PLOG  ( "%14s: %s\n", "MACS2_$mode", $subval );
-						printf STDOUT ( "%14s: %s\n", "MACS2_$mode", $subval );
+						printf STDERR ( "%14s: %s\n", "MACS2_$mode", $subval );
 					}
 				}
 
@@ -1149,7 +1150,7 @@ sub _configure
 		}
 	}
 	print $PLOG  "\n-------------------------------------------------------------------------------\n";
-	print STDOUT "\n-------------------------------------------------------------------------------\n";
+	print STDERR "\n-------------------------------------------------------------------------------\n";
 
 	return 1;
 }
@@ -1185,7 +1186,7 @@ sub _load_configuration_file
 		}
 		else{
 			print $PLOG  "WARNING: Failed retrieving configuration line:\n  $line\n";
-			print STDOUT "WARNING: Failed retrieving configuration line:\n  $line\n";
+			print STDERR "WARNING: Failed retrieving configuration line:\n  $line\n";
 		}
 	}
 	close IN;
@@ -1381,7 +1382,7 @@ sub destroy
 	my $file2  = $self->get_file2;
 
 	print $PLOG  "  Removing FASTQ files\n";
-	print STDOUT "  Removing FASTQ files\n";
+	print STDERR "  Removing FASTQ files\n";
 
 	`rm -f $file1`;
 	`rm -f $file2` if $file2;
@@ -1456,7 +1457,7 @@ sub quality_control
 	my $logsDir = $Config->get_value('LOGS_DIR');
 	my $fastqc  = $Config->get_value('FASTQC');
 	print $PLOG  "  Performing quality control ...\n";
-	print STDOUT "  Performing quality control ...\n";
+	print STDERR "  Performing quality control ...\n";
 	my $time0 = time;
 
 	my @qcLogs;
@@ -1479,20 +1480,20 @@ sub quality_control
 		my $base  = $bases[$i];
 		my $qcLog = "$logsDir/$base\_fastqc.log";
 
-		print STDOUT "    > $fastq\n";
+		print STDERR "    > $fastq\n";
 		print $PLOG  "    COMMAND: $fastqc --extract -o $qcDir -f fastq $fastq\n";
 		`echo "> $fastq" >> $qcErr`;
 		`$fastqc --extract -o $qcDir -f fastq $fastq 2>> $qcErr | sed 's|^|        |' > /dev/stderr`;
 		my $num = `ls $qcDir/$base*_fastqc/summary.txt | wc -l 2> /dev/null`;
 
 		if( !$num ){
-			print STDOUT "    Unable to QC reads!\n";
+			print STDERR "    Unable to QC reads!\n";
 			return 0;
 		}
-		# Output report to STDOUT
+		# Output report to STDERR
 		my $qcOut = `cut -f1,2 $qcDir/$base*_fastqc/summary.txt 2> /dev/null | sed 's|^|      |' | tail -n12`;
 		print $PLOG  "$qcOut"; # Report already contains new lines
-		print STDOUT "$qcOut"; # Report already contains new lines
+		print STDERR "$qcOut"; # Report already contains new lines
 
 		# Save to log file
 		`echo $fastq > $qcLog && cut -f1,2 $qcDir/$base*_fastqc/summary.txt >> $qcLog`;
@@ -1508,7 +1509,7 @@ sub quality_control
 	my $time1   = time;
 	my $elapsed = sprintf( "%.2f", ( $time1 - $time0 ) / 60 );
 	print $PLOG  "  Time elapsed: $elapsed min\n";
-	print STDOUT "  Time elapsed: $elapsed min\n";
+	print STDERR "  Time elapsed: $elapsed min\n";
 
 	return \@qcLogs;
 }
@@ -1533,17 +1534,17 @@ sub trim_adapters
         while( my $line = <IN> ){
             if( $line =~ /FAIL\tAdapter Content/ ){
                 print $PLOG  "  Failed Adapter Content\n";
-                print STDOUT "  Failed Adapter Content\n";
+                print STDERR "  Failed Adapter Content\n";
                 $fail++;
             }
             if( $line =~ /FAIL\tPer base sequence quality/ ){
                 print $PLOG  "  Failed Per base sequence quality\n";
-                print STDOUT "  Failed Per base sequence quality\n";
+                print STDERR "  Failed Per base sequence quality\n";
                 $fail++;
             }
             if( $line =~ /FAIL\tPer sequence quality scores/ ){
                 print $PLOG  "  Failed Per sequence quality scores\n";
-                print STDOUT "  Failed Per sequence quality scores\n";
+                print STDERR "  Failed Per sequence quality scores\n";
                 $fail++;
             }
         }
@@ -1559,7 +1560,7 @@ sub trim_adapters
     my $base2  = $self->get_base2;
 
     print $PLOG  "  Trimming sequences ...\n";
-    print STDOUT "  Trimming sequences ...\n";
+    print STDERR "  Trimming sequences ...\n";
     my $time0 = time;
 
     if( $fail > 0 ){
@@ -1621,7 +1622,7 @@ sub trim_adapters
     my $time1   = time;
     my $elapsed = sprintf( "%.2f", ( $time1 - $time0 ) / 60 );
     print $PLOG  "  Time elapsed: $elapsed min\n";
-    print STDOUT "  Time elapsed: $elapsed min\n";
+    print STDERR "  Time elapsed: $elapsed min\n";
 
     return 1;
 }
@@ -1639,7 +1640,7 @@ sub generate
 	my $numFiles  = 0;
 
 	print $PLOG  "  Generating FASTQ file ...\n";
-	print STDOUT "  Generating FASTQ file ...\n";
+	print STDERR "  Generating FASTQ file ...\n";
 	my $time0   = time;
 
 	# Download SRA file via FTP
@@ -1651,7 +1652,7 @@ sub generate
 	do{
 		$trial++;
 		print $PLOG  "    Downloading SRA file (trial $trial)\n";
-		print STDOUT "    Downloading SRA file (trial $trial)\n";
+		print STDERR "    Downloading SRA file (trial $trial)\n";
 		my( $sra6 ) = $sra =~ /(SRR\d{3})/;
 		my $ftpSite = "ftp://ftp-trace.ncbi.nih.gov/sra/sra-instant/reads/ByRun/sra/SRR/$sra6/$sra";
 		print $PLOG "    COMMAND: wget -cq -O $outDir/$sra.sra $ftpSite/$sra.sra 2> $logsDir/sra_wget.stderr\n";
@@ -1675,7 +1676,7 @@ sub generate
 	# Continue if SRA file is valid
 	if( $valid ){
 		print $PLOG  "      MD5 checksum OK\n";
-		print STDOUT "      MD5 checksum OK\n";
+		print STDERR "      MD5 checksum OK\n";
 	}
 	else{
 		# Clean and throw error message
@@ -1685,7 +1686,7 @@ sub generate
 
 	# Define FASTQ file names
 	print $PLOG  "    Trying with --split-files option\n";
-	print STDOUT "    Trying with --split-files option\n";
+	print STDERR "    Trying with --split-files option\n";
 	my $fastq1  = "$outDir/$sra\_1.fastq.gz";
 	my $fastq2  = "$outDir/$sra\_2.fastq.gz";
 
@@ -1713,7 +1714,7 @@ sub generate
 	if( $status2 == 2 ){
 		`rm -f $fastq1 $fastq2 2> /dev/null`;
 		print $PLOG  "    Trying without --split-files option\n";
-		print STDOUT "    Trying without --split-files option\n";
+		print STDERR "    Trying without --split-files option\n";
 		# Get FASTQ files without --split-files option
 		`echo "Exclude the --split-files option:" >> $fqdumpErr`;
 		`echo "$fastqDump --gzip $sraFile -O $outDir" >> $fqdumpErr`;
@@ -1733,7 +1734,7 @@ sub generate
 	my $time1   = time;
 	my $elapsed = sprintf( "%.2f", ( $time1 - $time0 ) / 60 );
 	print $PLOG  "  Time elapsed: $elapsed min\n";
-	print STDOUT "  Time elapsed: $elapsed min\n";
+	print STDERR "  Time elapsed: $elapsed min\n";
 
 	return 1;
 }
@@ -1842,7 +1843,7 @@ sub destroy_files
 	my $PLOG   = $Config->get_value('PLOG');
 
 	print $PLOG  "  Removing BAM files split by chromosome\n";
-	print STDOUT "  Removing BAM files split by chromosome\n";
+	print STDERR "  Removing BAM files split by chromosome\n";
 	my @files = values %$files;
 	`rm -f @files`;
 
@@ -1898,7 +1899,7 @@ sub make_bigwig
 	my $time0    = time;
 
 	print $PLOG  "  Making BigWig file from BAM file $bamFile\n";
-	print STDOUT "  Making BigWig file from BAM file $bamFile\n";
+	print STDERR "  Making BigWig file from BAM file $bamFile\n";
 	my $bwFile   = $bamFile;
 	$bwFile      =~ s/bam$/bw/;
 	print $PLOG "    COMMAND: $bedtools bamtobed -i $bamFile > $bamFile.bed\n";
@@ -1909,12 +1910,12 @@ sub make_bigwig
 	# Check bwFile was generated correctly
 	if( -s $bwFile ){
 		print $PLOG  "  BigWig file $bwFile created\n";
-		print STDOUT "  BigWig file $bwFile created\n";
+		print STDERR "  BigWig file $bwFile created\n";
 		`rm -f $bamFile.bed`;
 	}
 	else{
 		print $PLOG  "ERROR: Failed to create BigWig file $bwFile\n";
-		print STDOUT "ERROR: Failed to create BigWig file $bwFile\n";
+		print STDERR "ERROR: Failed to create BigWig file $bwFile\n";
 		return 0;
 	}
 
@@ -1924,7 +1925,7 @@ sub make_bigwig
 	my $time1    = time;
 	my $elapsed  = sprintf( "%.2f", ( $time1 - $time0 ) / 60 );
 	print $PLOG  "  Time elapsed: $elapsed min\n";
-	print STDOUT "  Time elapsed: $elapsed min\n";
+	print STDERR "  Time elapsed: $elapsed min\n";
 
 	return 1;
 }
@@ -1962,18 +1963,18 @@ sub align_to_genome
 	if( $fastq2 ){
 		$pe_flag = 1;
 		print $PLOG  "  Aligning paired-end reads to $gVersion\n";
-		print STDOUT "  Aligning paired-end reads to $gVersion\n";
+		print STDERR "  Aligning paired-end reads to $gVersion\n";
 	}
 	else{
 		print $PLOG  "  Aligning single-end reads to $gVersion\n";
-		print STDOUT "  Aligning single-end reads to $gVersion\n";
+		print STDERR "  Aligning single-end reads to $gVersion\n";
 	}
 
 	# Check for gzipped files
 	my $gz_flag = 0;
 	if( $fastq1 =~ /\.gz/ ){
 		print $PLOG  "    FASTQ files are compressed\n";
-		print STDOUT "    FASTQ files are compressed\n";
+		print STDERR "    FASTQ files are compressed\n";
 		$gz_flag = 1;
 	}
 
@@ -2094,7 +2095,7 @@ sub align_to_genome
 	if( $numAligned ){
 		my $perc_aligned   = sprintf( "%.1f", $numAligned / $totalReads * 100 );
 		print $PLOG  "    Aligned reads = $numAligned ($perc_aligned%)\n";
-		print STDOUT "    Aligned reads = $numAligned ($perc_aligned%)\n";
+		print STDERR "    Aligned reads = $numAligned ($perc_aligned%)\n";
 		$self->{'aligned'} = $numAligned;
 		$self->{'file'}    = $bamFile;
 	}
@@ -2105,7 +2106,7 @@ sub align_to_genome
 	my $time1   = time;
 	my $elapsed = sprintf( "%.2f", ( $time1 - $time0 ) / 60 );
 	print $PLOG  "  Time elapsed: $elapsed min\n";
-	print STDOUT "  Time elapsed: $elapsed min\n";
+	print STDERR "  Time elapsed: $elapsed min\n";
 
 	return 1;
 }
@@ -2141,12 +2142,12 @@ sub sort_bam
 	my $sorted = `$samtools view -H $bamFile 2>> $sortErr | grep -oP "SO:\\w+"`;
 	if( $sorted =~ /SO:coordinate/ ){
 		print $PLOG  "    BAM file is sorted\n";
-		print STDOUT "    BAM file is sorted\n";
+		print STDERR "    BAM file is sorted\n";
 		return 1;
 	}
 
 	print $PLOG  "  Sorting BAM file ...\n";
-	print STDOUT "  Sorting BAM file ...\n";
+	print STDERR "  Sorting BAM file ...\n";
 	my $time0  = time;
 
 	# Sort BAM file using samtools
@@ -2160,7 +2161,7 @@ sub sort_bam
 	$sorted    = `$samtools view -H $bamFile 2>> $sortErr | grep -oP "SO:\\w+"`;
 	if( $sorted =~ /SO:coordinate/ ){
 		print $PLOG  "    BAM file successfully sorted\n";
-		print STDOUT "    BAM file successfully sorted\n";
+		print STDERR "    BAM file successfully sorted\n";
 	}
 	else{
 		print $PLOG  "    ERROR: Failed to sort BAM file!\n";
@@ -2170,7 +2171,7 @@ sub sort_bam
 	my $time1   = time;
 	my $elapsed = sprintf( "%.2f", ( $time1 - $time0 ) / 60 );
 	print $PLOG  "  Time elapsed: $elapsed min\n";
-	print STDOUT "  Time elapsed: $elapsed min\n";
+	print STDERR "  Time elapsed: $elapsed min\n";
 
 	return 1;
 }
@@ -2186,7 +2187,7 @@ sub index_bam
 	my $indexErr = "$logsDir/index_bam.stderr";
 
 	print $PLOG  "  Indexing BAM file $bamFile\n";
-	print STDOUT "  Indexing BAM file $bamFile\n";
+	print STDERR "  Indexing BAM file $bamFile\n";
 	my $time0    = time;
 
 	if( !-s "$bamFile.bai" ){
@@ -2198,14 +2199,14 @@ sub index_bam
 
 	if( !-s "$bamFile.bai" ){
 		print $PLOG  "    Failed!\n";
-		print STDOUT "    Failed!\n";
+		print STDERR "    Failed!\n";
 		return 0;
 	}
 
 	my $time1   = time;
 	my $elapsed = sprintf( "%.2f", ( $time1 - $time0 ) / 60 );
 	print $PLOG  "  Time elapsed: $elapsed min\n";
-	print STDOUT "  Time elapsed: $elapsed min\n";
+	print STDERR "  Time elapsed: $elapsed min\n";
 
 	return 1;
 }
@@ -2223,7 +2224,7 @@ sub remove_duplicates
 	my $proc     = $Config->get_value('p');
 
 	print $PLOG  "  Removing duplicate reads ...\n";
-	print STDOUT "  Removing duplicate reads ...\n";
+	print STDERR "  Removing duplicate reads ...\n";
 	my $time0 = time;
 
 	# Remove duplicate reads by chromosome, position and sequence
@@ -2237,13 +2238,13 @@ sub remove_duplicates
 	my $perc    = sprintf( "%u", 100 - $percDup * 100 );
 	my $dReads  = $reads - $dups;
 	print $PLOG  "    Unique reads returned = $dReads ($perc%)\n";
-	print STDOUT "    Unique reads returned = $dReads ($perc%)\n";
+	print STDERR "    Unique reads returned = $dReads ($perc%)\n";
 	$self->{'aligned_filt'} = $dReads;
 
 	my $time1   = time;
 	my $elapsed = sprintf( "%.2f", ( $time1 - $time0 ) / 60 );
 	print $PLOG  "  Time elapsed: $elapsed min\n";
-	print STDOUT "  Time elapsed: $elapsed min\n";
+	print STDERR "  Time elapsed: $elapsed min\n";
 
 	return 1;
 }
@@ -2303,20 +2304,20 @@ sub get_length_of_largest_read
 
 	# Get length of largest read
 	print $PLOG  "  Getting largest read length\n";
-	print STDOUT "  Getting largest read length\n";
+	print STDERR "  Getting largest read length\n";
 
 	my $readLength = `$samtools view $bamFile | head -n100000 | cut -f6 | grep -oP "^\\d+" | sort -nru | head -n1`;
 	chomp $readLength;
 
 	if( !$readLength ){
 		print $PLOG  "\n    Failed retrieving read length!\n";
-		print STDOUT "\n    Failed retrieving read length!\n";
+		print STDERR "\n    Failed retrieving read length!\n";
 		return 0;
 	}
 	$self->{'readLength'} = $readLength;
 
 	print $PLOG  "    Read length = $readLength bp\n";
-	print STDOUT "    Read length = $readLength bp\n";
+	print STDERR "    Read length = $readLength bp\n";
 	return 1;
 }
 
@@ -2336,12 +2337,12 @@ sub split_bam_by_chr
 	my %chrFiles;
 
 	print $PLOG  "  Split BAM file by chromosomes ...\n";
-	print STDOUT "  Split BAM file by chromosomes ...\n";
+	print STDERR "  Split BAM file by chromosomes ...\n";
 	my $time0 = time;
 
 	# Indexing
 	print $PLOG  "    Indexing BAM file\n";
-	print STDOUT "    Indexing BAM file\n";
+	print STDERR "    Indexing BAM file\n";
 	`rm -f $bamFile.bai`;
 	`echo "$samtools index $bamFile" > $splitErr`;
 	`$samtools index $bamFile 2>&1 >> $splitErr`;
@@ -2371,21 +2372,21 @@ sub split_bam_by_chr
 			`rm -f $chrBamFile`;
 		}
 		print $PLOG  $answer;
-		print STDOUT $answer;
+		print STDERR $answer;
 	}
 
 	if( keys %chrFiles ){
 		my $time1   = time;
 		my $elapsed = sprintf( "%.2f", ( $time1 - $time0 ) / 60 );
 		print $PLOG  "  Time elapsed: $elapsed min\n";
-		print STDOUT "  Time elapsed: $elapsed min\n";
+		print STDERR "  Time elapsed: $elapsed min\n";
 		$self->{'chrFiles'} = \%chrFiles;
 
 		return 1;
 	}
 	else{
 		print $PLOG  "  Failed splitting BAM file!\n";
-		print STDOUT "  Failed splitting BAM file!\n";
+		print STDERR "  Failed splitting BAM file!\n";
 		return 0;
 	}
 }
@@ -2462,7 +2463,7 @@ sub destroy_files
 	my $PLOG   = $Config->get_value('PLOG');
 
 	print $PLOG  "  Removing PEAK files\n";
-	print STDOUT "  Removing PEAK files\n";
+	print STDERR "  Removing PEAK files\n";
 	while( my( $type, $file ) = each %$files ){
 		`rm -f $file`;
 	}
@@ -2478,7 +2479,7 @@ sub destroy_chr_files
 	my $PLOG   = $Config->get_value('PLOG');
 
 	print $PLOG  "  Removing PEAK files split by chromosome\n";
-	print STDOUT "  Removing PEAK files split by chromosome\n";
+	print STDERR "  Removing PEAK files split by chromosome\n";
 	while( my( $type, $chrFiles ) = each %$files ){
 		while( my( $chr, $file )  = each %$chrFiles ){
 			`rm -f $file`;
@@ -2525,7 +2526,7 @@ sub call_peaks
 	my $extend    = $Config->get_value('PEAK_EXT');
 
 	print $PLOG  "  Calling $type peaks ...\n";
-	print STDOUT "  Calling $type peaks ...\n";
+	print STDERR "  Calling $type peaks ...\n";
 	my $time0 = time;
 
 	# Call peaks on BAM file using MACS2
@@ -2561,16 +2562,16 @@ sub call_peaks
 		my $answer   = "    No peaks found!\n";
 		$answer      = "    Total number of peaks = $numPeaks\n" if $numPeaks;
 		print $PLOG  $answer;
-		print STDOUT $answer;
+		print STDERR $answer;
 	}
 	else{
 		print $PLOG  "    Failed to call $type peaks!\n";
-		print STDOUT "    Failed to call $type peaks!\n";
+		print STDERR "    Failed to call $type peaks!\n";
 	}
 	my $time1    = time;
 	my $elapsed  = sprintf( "%.2f", ( $time1 - $time0 ) / 60 );
 	print $PLOG  "  Time elapsed: $elapsed min\n";
-	print STDOUT "  Time elapsed: $elapsed min\n";
+	print STDERR "  Time elapsed: $elapsed min\n";
 
 	return 1;
 }
@@ -2587,7 +2588,7 @@ sub split_peaks_by_chr
 	my %chrFiles;
 
 	print $PLOG  "  Splitting peak file by chromosomes ...\n";
-	print STDOUT "  Splitting peak file by chromosomes ...\n";
+	print STDERR "  Splitting peak file by chromosomes ...\n";
 	my $time0 = time;
 
 	# Split PEAK file by chromosomes
@@ -2595,7 +2596,7 @@ sub split_peaks_by_chr
 
 	if( !-s $peakFile ){
 		print $PLOG  "    No peak file $peakFile found!\n";
-		print STDOUT "    No peak file $peakFile found!\n";
+		print STDERR "    No peak file $peakFile found!\n";
 		return 0;
 	}
 
@@ -2614,12 +2615,12 @@ sub split_peaks_by_chr
 			`rm -f $chrPeakFile`;
 		}
 		print $PLOG  $answer;
-		print STDOUT $answer;
+		print STDERR $answer;
 	}
 	my $time1   = time;
 	my $elapsed = sprintf( "%.2f", ( $time1 - $time0 ) / 60 );
 	print $PLOG  "  Time elapsed = $elapsed min\n";
-	print STDOUT "  Time elapsed = $elapsed min\n";
+	print STDERR "  Time elapsed = $elapsed min\n";
 
 	return 1;
 }
@@ -2660,7 +2661,7 @@ sub count_reads_under_peak
 	my $proc      = $Config->get_value('p');
 
 	print $PLOG  "  Counting reads under called peaks ...\n";
-	print STDOUT "  Counting reads under called peaks ...\n";
+	print STDERR "  Counting reads under called peaks ...\n";
 	my $time0 = time;
 
 	my $pm = new Parallel::ForkManager( $proc );
@@ -2764,7 +2765,7 @@ sub count_reads_under_peak
 				`mv $chrCountFile $chrPeakFile`;
 			}
 			else{
-				print STDOUT "    Peak file for chromosome $chr not generated!\n";
+				print STDERR "    Peak file for chromosome $chr not generated!\n";
 				`rm -f $chrCountFile $chrPeakFile 2> /dev/null`;
 			}
 		}
@@ -2782,12 +2783,12 @@ sub count_reads_under_peak
 
 				if( $rCount ){
 					print $PLOG  "    Number of counted peaks in $chr = $rCount\n";
-					print STDOUT "    Number of counted peaks in $chr = $rCount\n";
+					print STDERR "    Number of counted peaks in $chr = $rCount\n";
 					$chrCounts++;
 				}
 				else{
 					print $PLOG  "    No counted peaks in $chr\n";
-					print STDOUT "    No counted peaks in $chr\n";
+					print STDERR "    No counted peaks in $chr\n";
 				}
 			}
 		}
@@ -2795,7 +2796,7 @@ sub count_reads_under_peak
 
 	if( !$chrCounts ){
 		print $PLOG  "    Failed!\n";
-		print STDOUT "    Failed!\n";
+		print STDERR "    Failed!\n";
 		return 0;
 	}
 
@@ -2833,12 +2834,12 @@ sub count_reads_under_peak
 
 	# Report on the total number of reads in all peaks
 	print $PLOG  "    Total number of reads in peaks = $totalCount\n";
-	print STDOUT "    Total number of reads in peaks = $totalCount\n";
+	print STDERR "    Total number of reads in peaks = $totalCount\n";
 
 	my $time1   = time;
 	my $elapsed = sprintf( "%.2f", ( $time1 - $time0 ) / 60 );
 	print $PLOG  "  Time elapsed: $elapsed min\n";
-	print STDOUT "  Time elapsed: $elapsed min\n";
+	print STDERR "  Time elapsed: $elapsed min\n";
 
 	return 1;
 }
