@@ -136,7 +136,6 @@ if( $options{'i'} and $iNum > 1 ){
 					print $PLOG "ERROR: File $input2 does not exist or it's empty\n";
 					die "ERROR: File $input2 does not exist or it's empty\n";
 				}
-				if( $iNum > 1 ){
 				print $PLOG  "    No need for concatenation. Only one file was provided.";
 				print STDERR "    No need for concatenation. Only one file was provided.";
 				$cat = 'cat';
