@@ -1725,8 +1725,8 @@ sub generate
 	}
 	$self->load_files( $fastq1, $fastq2 );
 
-	my $time1   = time;
-	my $elapsed = sprintf( "%.2f", ( $time1 - $time0 ) / 60 );
+	$time1   = time;
+	$elapsed = sprintf( "%.2f", ( $time1 - $time0 ) / 60 );
 	print $PLOG  "  Time elapsed: $elapsed min\n";
 	print STDERR "  Time elapsed: $elapsed min\n";
 
