@@ -9,6 +9,27 @@ Written by: Mario Pujato
 ================================================================================
 
 
+================================================================================
+EXTERNAL DEPENDENCIES
+
+  vdb-validate # Compares checksums for downloaded SRA files
+  fastq-dump   # Extract FASTQ files from SRA files
+  fastqc       # General quality control on raw reads
+
+  trim_galore  # Trims bad quality reads
+  cutadapt     # Needed by trim_galore
+
+  STAR         # Aligner
+  hisat2       # Aligner
+  bowtie2      # Aligner
+
+  samtools     # Manipulates SAM files (version 1.3 or higher)
+  bedtools     # Manipulates BED files
+  picard-tools # Removes duplicate reads
+  macs2        # Calls peaks from BAM files
+
+
+================================================================================
 USAGE: NextGenAligner [options] <arguments>
 
   [options]
@@ -52,6 +73,7 @@ USAGE: NextGenAligner [options] <arguments>
             (the default behavior is to remove duplicate reads)
       -x  Print pipeline scheme to the screen
       -y  Generate a default configuration file
+================================================================================
 
 
 ================================================================================
@@ -81,8 +103,7 @@ EXAMPLES:
 
 
 ================================================================================
-NextGenAligner: Pipeline scheme
-================================================================================
+PIPELINE SCHEME
 
 The pipeline can be used to start and/or generate any intermediate file in the scheme.
 
