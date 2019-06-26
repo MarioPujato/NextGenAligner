@@ -6,9 +6,9 @@ use Parallel::ForkManager;
 
 my $progName = $0;
 $progName    =~ s/^.*\///;
-my $version  = '1.4.2';
+my $version  = '1.4.3';
 my $created  = '011017';
-my $modified = '052819';
+my $modified = '062619';
 
 my %options;
 # EHKLNPQRSTUVWYZ
@@ -117,7 +117,7 @@ if( $options{'i'} and $iNum > 1 ){
 		`rm -f $mergedFastq1 $mergedFastq2 2> /dev/null`;
 
 		# Go through the FASTQ files and concatenate
-		for( my $i = 1; $i < $iNum; $i++ ){
+		for( my $i = 0; $i < $iNum; $i++ ){
 			print $PLOG  "  > $inputs[$i]\n";
 			print STDERR "  > $inputs[$i]\n";
 			my( $input1, $input2 ) = split( ':', $inputs[$i] );
@@ -128,20 +128,18 @@ if( $options{'i'} and $iNum > 1 ){
 			}
 			my $cat = 'cat';
 			$cat    = 'zcat' if $input1 =~ /gz$/;
-			print $PLOG "    COMMAND: $cat $input1 | gzip >> $mergedFastq1\n";
-			`$cat $input1 | gzip >> $mergedFastq1`;
+			print $PLOG "    COMMAND: $cat $input1 | gzip -c >> $mergedFastq1\n";
+			`$cat $input1 | gzip -c >> $mergedFastq1`;
 
 			if( $input2 ){
 				if( !-s $input2 ){
 					print $PLOG "ERROR: File $input2 does not exist or it's empty\n";
 					die "ERROR: File $input2 does not exist or it's empty\n";
 				}
-				print $PLOG  "    No need for concatenation. Only one file was provided.";
-				print STDERR "    No need for concatenation. Only one file was provided.";
 				$cat = 'cat';
 				$cat = 'zcat' if $input2 =~ /gz$/;
-				print $PLOG "    COMMAND: $cat $input2 | gzip >> $mergedFastq2\n";
-				`$cat $input2 | gzip > $mergedFastq2`;
+				print $PLOG "    COMMAND: $cat $input2 | gzip -c >> $mergedFastq2\n";
+				`$cat $input2 | gzip -c > $mergedFastq2`;
 
 				$Config->set_value( 'F', "$mergedFastq1:$mergedFastq2" );
 			}
