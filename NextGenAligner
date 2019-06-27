@@ -116,11 +116,11 @@ if( $options{'i'} and $iNum > 1 ){
 		# Make sure the merged files do not exist by removing any existing ones
 		`rm -f $mergedFastq1 $mergedFastq2 2> /dev/null`;
 
-		# Go through the FASTQ files and concatenate
+		# Concatenate FASTQ files
 		for( my $i = 0; $i < $iNum; $i++ ){
-			print $PLOG  "  > $inputs[$i]\n";
-			print STDERR "  > $inputs[$i]\n";
 			my( $input1, $input2 ) = split( ':', $inputs[$i] );
+			print $PLOG  "    > Read 1: $input1\n";
+			print STDERR "    > Read 1: $input1\n";
 
 			if( !-s $input1 ){
 				print $PLOG "ERROR: File $input1 does not exist or it's empty\n";
@@ -136,10 +136,12 @@ if( $options{'i'} and $iNum > 1 ){
 					print $PLOG "ERROR: File $input2 does not exist or it's empty\n";
 					die "ERROR: File $input2 does not exist or it's empty\n";
 				}
+				print $PLOG  "    > Read 2: $input2\n";
+				print STDERR "    > Read 2: $input2\n";
 				$cat = 'cat';
 				$cat = 'zcat' if $input2 =~ /gz$/;
 				print $PLOG "    COMMAND: $cat $input2 | gzip -c >> $mergedFastq2\n";
-				`$cat $input2 | gzip -c > $mergedFastq2`;
+				`$cat $input2 | gzip -c >> $mergedFastq2`;
 
 				$Config->set_value( 'F', "$mergedFastq1:$mergedFastq2" );
 			}
