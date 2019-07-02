@@ -6,9 +6,9 @@ use Parallel::ForkManager;
 
 my $progName = $0;
 $progName    =~ s/^.*\///;
-my $version  = '1.4.3';
+my $version  = '1.4.4';
 my $created  = '011017';
-my $modified = '062619';
+my $modified = '070219';
 
 my %options;
 # EHKLNPQRSTUVWYZ
@@ -1226,7 +1226,7 @@ sub _require_program
 		print STDERR "\n<VERSION START>\nPROGRAM: $options->{$conf}\n$version\n<VERSION END>\n";
 	}
 	else{
-		die "ERROR: Required command \"$conf\" not found\n";
+		die "ERROR: Required command \"$conf=$options->{$conf}\" not found\n";
 	}
 
 	return 1;
@@ -1578,8 +1578,8 @@ sub trim_adapters
 			# Rename the "val_#" files to "trimmed"
 			my $nFile1 = $file1;
 			my $nFile2 = $file2;
-			$nFile1    =~ s/val_1/trim/;
-			$nFile2    =~ s/val_2/trim/;
+			$nFile1    =~ s/val_1/trimmed/;
+			$nFile2    =~ s/val_2/trimmed/;
 			`mv -f $file1 $nFile1`;
 			`mv -f $file2 $nFile2`;
 
@@ -1599,11 +1599,9 @@ sub trim_adapters
                 # If FASTQ is an intermediate file, we can remove the orignal and leave the trimmed one
                 `rm -f $fastq1`;
             }
-            else{
-                # If FASTQ was the input, we keep processing the trimmed file without touching the original
-                my $file = `ls $outDir\/$base*_trimmed.fq*`; chomp $file;
-                $self->set_file1( $file );
-            }
+			# If FASTQ was the input, we keep processing the trimmed file without touching the original
+			my $file = `ls $outDir\/$base*_trimmed.fq*`; chomp $file;
+			$self->set_file1( $file );
         }
     }
     my $time1   = time;
@@ -2067,7 +2065,7 @@ sub align_to_genome
 
 		# Run BOWTIE2 aligner
 		#-----------------------------------------------------------------------
-		print "    COMMAND: $bowtie2 -p $proc $modifiers -x $index $fastqs 2> $log_file | $samtools view -bS - > $bamFile\n";
+		print $PLOG "    COMMAND: $bowtie2 -p $proc $modifiers -x $index $fastqs 2> $log_file | $samtools view -bS - > $bamFile\n";
 		`$bowtie2 -p $proc $modifiers -x $index $fastqs 2> $log_file | $samtools view -bS - > $bamFile 2> $logsDir/alignment_bowtie2.stderr`;
 		#-----------------------------------------------------------------------
 		$totalReads = `grep "reads; of these:" $log_file | sed 's|^ *||' | cut -d' ' -f1`; chomp $totalReads;
