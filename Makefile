@@ -133,14 +133,15 @@ endif
 	@git diff --color $^
 	@echo
 	
-	@read -p "Does the above 'git diff' look OK? ([y]/n, or Ctrl+C) "; \
-	if [[ -n $$REPLY || $$REPLY =~ ^[Nn] ]]; then \
+	@read -p "Does the above 'git diff' look OK? (y/[n], or Ctrl+C) "; \
+	if [[ -z $$REPLY || $$REPLY =~ ^[Nn] ]]; then \
 		echo; \
 		echo "$(YELLOW)(**) NOTE$(RESET) - reverting changes to: $<" >&2; \
 		git checkout $^; \
 		exit 1; \
 	fi
 	
+	@echo
 	@# create a new commit log entry for the release
 	git add $^
 	@#      ^^ means "the names of all the prerequisites"
