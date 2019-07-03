@@ -6,9 +6,9 @@ use Parallel::ForkManager;
 
 my $progName = $0;
 $progName    =~ s/^.*\///;
-my $version  = '1.4.4';
+my $version  = '1.4.5';
 my $created  = '011017';
-my $modified = '070219';
+my $modified = '070319';
 
 my %options;
 # EHKLNPQRSTUVWYZ

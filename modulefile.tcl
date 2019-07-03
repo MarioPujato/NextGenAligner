@@ -7,7 +7,7 @@
 
 set name "nextgenaligner"
 set proper "Mario's NextGenAligner"
-set version "1.4.0"
+set version "1.4.5"
 set descrip "Standard analysis pipeline for NGS data"
 set homepage "https://github.com/ernstki/NextGenAligner.git"
 set issues "https://github.com/MarioPujato/NextGenAligner/issues"
