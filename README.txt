@@ -2,7 +2,7 @@
 NextGenAligner
 Next-Generation sequencing alignment pipeline
 
-Version:    1.4.3
+Version:    1.4.4
 Created:    011017
 Modified:   062619
 Written by: Mario Pujato
