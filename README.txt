@@ -184,3 +184,15 @@ Output files:
              multiplied by 1,000,000 divided by the total number of reads under
              all peaks
 ================================================================================
+
+
+================================================================================
+LICENSE / CITATION
+
+NextGenAligner is MIT-licensed. See LICENSE.txt.
+
+Cite as follows (or as appropriate for your style guide):
+
+  Mario Pujato, NextGenAligner, (2019), GitHub repository,
+  https://github.com/MarioPujato/NextGenAligner
+================================================================================
