@@ -644,15 +644,15 @@ sub print_configuration_file
 
 # HUMAN genome
 #-------------------------------------------------------------------------------
-REFGEN_FILE  = /home/mario/Databases/Hsap/hg19/hg19.fa
+REFGEN_FILE  = /data/BCS/Databank/Genomes/hg38/hg38.fa
 
 # MOUSE genome
 #-------------------------------------------------------------------------------
-#REFGEN_FILE  = /home/mario/Databases/Mmus/mm9/mm9.fa
+#REFGEN_FILE  = /data/BCS/Databank/Genomes/mm10/mm10.fa
 
 # ZEBRAFISH genome
 #-------------------------------------------------------------------------------
-#REFGEN_FILE  = /home/mario/Databases/danRer7/danRer7.fa
+#REFGEN_FILE  = /data/BCS/Databank/Genomes/danRer7/danRer7.fa
 
 
 
@@ -2307,7 +2307,7 @@ sub _remove_duplicate_reads
 	$mult       = 2 if $pairedEnd == 1;
 	my $reads   = sprintf( "%u", $reads{'input'}/$mult );
 	my $dups    = sprintf( "%u", $reads{'dups'}/$mult );
-	my $percDup = sprintf( "%.1f", $dups/$reads );
+	my $percDup = sprintf( "%u", 100-$dups/$reads );
 
 	return(
 	 	$reads,
