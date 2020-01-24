@@ -2,11 +2,16 @@
 NextGenAligner
 Next-Generation sequencing alignment pipeline
 
-Version:    1.4.4
+Version:    1.5.0
 Created:    011017
-Modified:   062619
 Written by: Mario Pujato
+
+
 ================================================================================
+CHANGE LOG
+
+012320 - 1.5.0: Replaced samtools sort and picard markduplicates with sambamba
+010220 - 1.4.5: Fixed removal of intermediate FASTQ files
 
 
 ================================================================================
