@@ -346,14 +346,14 @@ sub process_fastq_file
 	);
 	$Alignment->align_to_genome;
 
+	# Sort BAM file
+	$Alignment->sort_bam;
+
 	# Remove duplicate reads
 	if( !$Config->get_value('r') ){
 		$Alignment->remove_duplicates;
 		$Config->set_value( 'DP', 1 );
 	}
-
-	# Sort BAM file
-	$Alignment->sort_bam;
 
 	# Save FASTQ files (no longer in use)
 	if( !$Config->get_value('SAVE_FASTQ') ){
@@ -380,13 +380,13 @@ sub process_bam_file
 		config => $Config,
 	);
 
+	# Sort BAM file
+	$Alignment->sort_bam;
+
 	# Remove duplicate reads
 	unless( $Config->get_value('r') or $Config->get_value('DP') ){
 		$Alignment->remove_duplicates;
 	}
-
-	# Sort BAM file
-	$Alignment->sort_bam;
 
 	# Stop if not calling peaks (only BAM file requested)
 	return $Alignment if ! $Config->get_value('c');
@@ -725,8 +725,8 @@ PEAK_EXT = 50    # Number of base pairs to extend called peaks on both sides
 # -g 1.5e+9 for Danio rerio
 MODE1 = -g hs -q 0.01                                  # Narrow peak calls
 MODE2 = -g hs -q 0.01 --broad                          # Broad peak calls
-#MODE3 = -g hs -q 0.01 --broad --nomodel --extsize  500 # Broad peak (with no model) calls with peak size of 500bp
-#MODE4 = -g hs -q 0.01 --broad --nomodel --extsize 1000 # Broad peak (with no model) calls with peak size of 1000bp
+MODE3 = -g hs -q 0.01 --broad --nomodel --extsize  500 # Broad peak (with no model) calls with peak size of 500bp
+MODE4 = -g hs -q 0.01 --broad --nomodel --extsize 1000 # Broad peak (with no model) calls with peak size of 1000bp
 
 
 
@@ -758,10 +758,11 @@ CUTADAPT   = cutadapt
 HISAT2     = hisat2
 BOWTIE2    = bowtie2
 #STAR       = STAR --alignSJDBoverhangMin 999  # With splice awarenes turned off
-STAR       = STAR --outFilterScoreMinOverLread 0.1 --outFilterMatchNminOverLread 0.1  # Allows short reads to be aligned
+STAR       = STAR
 SAMTOOLS   = samtools # Version 1.3 or higher
 BEDTOOLS   = bedtools
-SAMBAMBA   = sambamba -q
+PICARD     = picard-tools MarkDuplicates
+#PICARD     = java -Xmx16g -jar /usr/local/picard/1.89/jar/MarkDuplicates.jar  # In BMI Cluster
 MACS2      = macs2
 MOODS      = moods\n";
 
@@ -1307,9 +1308,7 @@ sub _require_a_group_options
 
 	_require_file( $options, 'REFGEN_FILE' );
 	_require_program( $options, 'SAMTOOLS' );
-	_require_program( $options, 'SAMBAMBA' );
 	$include->{'SAMTOOLS'}    = 1;
-	$include->{'SAMBAMBA'}    = 1;
 	$include->{'REFGEN_FILE'} = 1;
 
 	if( $options->{'s'} ){
@@ -1346,7 +1345,8 @@ sub _require_r_group_options
 
 	# Remove duplicate reads
 	unless( $options->{'r'} ){
-		$include->{'SAMBAMBA'} = 1;
+		_require_program( $options, 'PICARD' );
+		$include->{'PICARD'}   = 1;
 		$include->{'SAMTOOLS'} = 1;
 	}
 }
@@ -2144,7 +2144,6 @@ sub sort_bam
 	my $Config   = $self->{'config'};
 	my $PLOG     = $Config->get_value('PLOG');
 	my $logsDir  = $Config->get_value('LOGS_DIR');
-	my $sambamba = $Config->get_value('SAMBAMBA');
 	my $samtools = $Config->get_value('SAMTOOLS');
 	my $proc     = $Config->get_value('p');
 	my $sortErr  = "$logsDir/sort_bam.stderr";
@@ -2163,11 +2162,10 @@ sub sort_bam
 	my $time0  = time;
 
 	# Sort BAM file using samtools
-	print $PLOG "    COMMAND: $sambamba sort -t $proc -o $bamFile.sorted $bamFile\n";
-	`echo "$sambamba sort -t $proc -o $bamFile.sorted $bamFile" 2>> $sortErr`;
-	`$sambamba sort -t $proc -o $bamFile.sorted $bamFile 2>> $sortErr`;
-	`mv $bamFile.sorted $bamFile`;
-	`mv $bamFile.sorted.bai $bamFile.bai`;
+	print $PLOG "    COMMAND: $samtools sort -\@ $proc -o $bamFile.sort $bamFile\n";
+	`echo "$samtools sort -\@ $proc -o $bamFile.sort $bamFile" >> $sortErr`;
+	`$samtools sort -\@ $proc -o $bamFile.sort $bamFile 2>&1 >> $sortErr`;
+	`mv $bamFile.sort $bamFile`;
 
 	# Check again if BAM file is sorted
 	`echo "$samtools view -H $bamFile" >> $sortErr`;
@@ -2248,9 +2246,10 @@ sub remove_duplicates
 	) = _remove_duplicate_reads( $self );
 	die "    Failed!\n" if !$reads;
 
+	my $perc    = sprintf( "%u", 100 - $percDup * 100 );
 	my $dReads  = $reads - $dups;
-	print $PLOG  "    Unique reads returned = $dReads ($percDup%)\n";
-	print STDERR "    Unique reads returned = $dReads ($percDup%)\n";
+	print $PLOG  "    Unique reads returned = $dReads ($perc%)\n";
+	print STDERR "    Unique reads returned = $dReads ($perc%)\n";
 	$self->{'aligned_filt'} = $dReads;
 
 	my $time1   = time;
@@ -2270,44 +2269,34 @@ sub _remove_duplicate_reads
 	my $Config   = $self->{'config'};
 	my $PLOG     = $Config->get_value('PLOG');
 	my $logsDir  = $Config->get_value('LOGS_DIR');
-	my $sambamba = $Config->get_value('SAMBAMBA');
+	my $picard   = $Config->get_value('PICARD');
 	my $outDir   = $Config->get_value('O');
-	my $proc     = $Config->get_value('p');
 	my $bamDedup = "$outDir/$base\_dedup.bam";
-	my $sambLog  = "$logsDir/$base\_sambamba.log";
+	my $picLog   = "$logsDir/$base\_picard.log";
+	my $picErr   = "$logsDir/picard.stderr";
 
-	print $PLOG "    COMMAND: $sambamba markdup -r -t $proc $bamFile $bamDedup 2> $sambLog\n";
-	`$sambamba markdup -r -t $proc $bamFile $bamDedup 2> $sambLog`;
+	print $PLOG "    COMMAND: $picard I=$bamFile REMOVE_DUPLICATES=true O=$bamDedup M=$picLog\n";
+	`$picard I=$bamFile REMOVE_DUPLICATES=true O=$bamDedup M=$picLog 2> $picErr`;
 	die "    Failed!\n" unless -s $bamDedup;
 	`mv -f $bamDedup $bamFile 2> /dev/null`;
-	`mv -f $bamDedup.bai $bamFile.bai 2> /dev/null`;
+	`rm -f $picErr`;
 
-	# Read sambamba log and extract values to calculate percent duplication
-	# All reads are expressed as single-end reads
-	open( IN, $sambLog ) or die "ERROR: Could not read sambamba log file: $sambLog\n";
-	my %reads;
-	my $pairedEnd = 0;
+	my $result = `grep -A1 "^LIBRARY" $picLog | tail -1 | cut -f2,3,5,6,8`;
+	chomp $result;
 
-	for my $line ( <IN> ){
-		chomp $line;
-		if( $line =~ /sorted (\d+) end pairs/ ){
-			my $reads = $1;
-			$reads{'input'}  = 2*$reads;
-			$pairedEnd = 1 if $reads > 0;
-		}
-		elsif( $line =~ /and (\d+) single ends/ ){
-			$reads{'input'} += $1;
-		}
-		elsif( $line =~ /found (\d+) duplicates/ ){
-			$reads{'dups'}   = $1;
-		}
+	# dups: number of single duplicate reads; pDups: number of paired duplicate reads
+	my(
+	 	$reads,
+		$pReads,
+		$dups,
+		$pDups,
+		$percDup,
+	) = split( "\t", $result );
+
+	if( $reads < $pReads ){
+		$reads = $pReads;
+		$dups  = $pDups;
 	}
-
-	my $mult    = 1;
-	$mult       = 2 if $pairedEnd == 1;
-	my $reads   = sprintf( "%u", $reads{'input'}/$mult );
-	my $dups    = sprintf( "%u", $reads{'dups'}/$mult );
-	my $percDup = sprintf( "%.1f", $dups/$reads );
 
 	return(
 	 	$reads,
