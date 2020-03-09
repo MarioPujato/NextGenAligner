@@ -7,12 +7,13 @@ use Parallel::ForkManager;
 
 my $progName = $0;
 $progName    =~ s/^.*\///;
-my $version  = '1.5.0';
+my $version  = '1.5.1';
 my $created  = '011017';
 my $modified = '012320';
 #-------------------------------------------------------------------------------
 # Change log
 #-------------------------------------------------------------------------------
+# 030920 - 1.5.1: Bugfix. HISAT2 and BOWTIE2 incapable of renaming unmapped files
 # 012320 - 1.5.0: Replaced samtools sort and picard markduplicates with sambamba
 # 010220 - 1.4.5: Fixed removal of intermediate FASTQ files
 #-------------------------------------------------------------------------------
@@ -761,7 +762,7 @@ BOWTIE2    = bowtie2
 STAR       = STAR --outFilterScoreMinOverLread 0.1 --outFilterMatchNminOverLread 0.1  # Allows short reads to be aligned
 SAMTOOLS   = samtools # Version 1.3 or higher
 BEDTOOLS   = bedtools
-SAMBAMBA   = sambamba -q
+SAMBAMBA   = sambamba -q  # For quite mode use -q
 MACS2      = macs2
 MOODS      = moods\n";
 
@@ -2053,14 +2054,14 @@ sub align_to_genome
 
 		# Rename unmapped FASTQ files
 		if( $pe_flag ){
-			my $unmapped = "$outDir/$base";
-			`mv -f $unmapped $outDir/$base\_unmapped_R1.fastq.gz` if -s $unmapped;
-		}
-		else{
 			my $unmapped1 = "$outDir/$base.1";
 			my $unmapped2 = "$outDir/$base.2";
 			`mv -f $unmapped1 $outDir/$base\_unmapped_R1.fastq.gz` if -s $unmapped1;
 			`mv -f $unmapped2 $outDir/$base\_unmapped_R2.fastq.gz` if -s $unmapped2;
+		}
+		else{
+			my $unmapped = "$outDir/$base";
+			`mv -f $unmapped $outDir/$base\_unmapped_R1.fastq.gz` if -s $unmapped;
 		}
 	}
 	# Align with BOWTIE2
@@ -2090,14 +2091,14 @@ sub align_to_genome
 
 		# Rename unmapped FASTQ files
 		if( $pe_flag ){
-			my $unmapped = "$outDir/$base";
-			`mv -f $unmapped $outDir/$base\_unmapped_R1.fastq.gz` if -s $unmapped;
-		}
-		else{
 			my $unmapped1 = "$outDir/$base.1";
 			my $unmapped2 = "$outDir/$base.2";
 			`mv -f $unmapped1 $outDir/$base\_unmapped_R1.fastq.gz` if -s $unmapped1;
 			`mv -f $unmapped2 $outDir/$base\_unmapped_R2.fastq.gz` if -s $unmapped2;
+		}
+		else{
+			my $unmapped = "$outDir/$base";
+			`mv -f $unmapped $outDir/$base\_unmapped_R1.fastq.gz` if -s $unmapped;
 		}
 	}
 
@@ -2307,7 +2308,7 @@ sub _remove_duplicate_reads
 	$mult       = 2 if $pairedEnd == 1;
 	my $reads   = sprintf( "%u", $reads{'input'}/$mult );
 	my $dups    = sprintf( "%u", $reads{'dups'}/$mult );
-	my $percDup = sprintf( "%u", 100-$dups/$reads );
+	my $percDup = sprintf( "%.1f", 100*(1-$dups/$reads) );
 
 	return(
 	 	$reads,

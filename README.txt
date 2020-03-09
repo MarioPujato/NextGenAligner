@@ -2,7 +2,7 @@
 NextGenAligner
 Next-Generation sequencing alignment pipeline
 
-Version:    1.5.0
+Version:    1.5.1
 Created:    011017
 Written by: Mario Pujato
 
@@ -10,6 +10,7 @@ Written by: Mario Pujato
 ================================================================================
 CHANGE LOG
 
+030920 - 1.5.1: Bugfix. HISAT2 and BOWTIE2 incapable of renaming unmapped files
 012320 - 1.5.0: Replaced samtools sort and picard markduplicates with sambamba
 010220 - 1.4.5: Fixed removal of intermediate FASTQ files
 
@@ -30,7 +31,7 @@ EXTERNAL DEPENDENCIES
 
   samtools     # Manipulates SAM files (version 1.3 or higher)
   bedtools     # Manipulates BED files
-  picard-tools # Removes duplicate reads
+  sambamba     # Removes duplicate reads and sorts BAM files
   macs2        # Calls peaks from BAM files
 
 
